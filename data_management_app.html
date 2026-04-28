@@ -1,0 +1,237 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans)}
+.app{padding:1rem 0;min-height:500px}
+.toolbar{display:flex;align-items:center;gap:8px;margin-bottom:1rem;flex-wrap:wrap}
+.toolbar input[type=text]{flex:1;min-width:160px;max-width:280px}
+.toolbar select{width:140px}
+.btn-primary{background:var(--color-text-primary);color:var(--color-background-primary);border:none;padding:0 16px;height:36px;border-radius:var(--border-radius-md);font-size:14px;cursor:pointer;white-space:nowrap}
+.btn-primary:hover{opacity:0.85}
+.btn-danger{background:var(--color-background-danger);color:var(--color-text-danger);border:0.5px solid var(--color-border-danger);padding:0 12px;height:30px;border-radius:var(--border-radius-md);font-size:13px;cursor:pointer}
+.btn-danger:hover{opacity:0.8}
+.btn-edit{background:var(--color-background-secondary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-tertiary);padding:0 12px;height:30px;border-radius:var(--border-radius-md);font-size:13px;cursor:pointer}
+.btn-edit:hover{background:var(--color-background-tertiary)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:1rem}
+.stat{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 1rem}
+.stat-label{font-size:12px;color:var(--color-text-secondary);margin-bottom:4px}
+.stat-val{font-size:20px;font-weight:500;color:var(--color-text-primary)}
+.table-wrap{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:14px}
+thead{background:var(--color-background-secondary)}
+th{padding:10px 12px;text-align:left;font-weight:500;font-size:13px;color:var(--color-text-secondary);border-bottom:0.5px solid var(--color-border-tertiary);cursor:pointer;user-select:none;white-space:nowrap}
+th:hover{color:var(--color-text-primary)}
+td{padding:10px 12px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-primary)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--color-background-secondary)}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:12px;font-weight:500}
+.badge-active{background:var(--color-background-success);color:var(--color-text-success)}
+.badge-inactive{background:var(--color-background-secondary);color:var(--color-text-tertiary)}
+.badge-pending{background:var(--color-background-warning);color:var(--color-text-warning)}
+.actions{display:flex;gap:6px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:100}
+.modal{background:var(--color-background-primary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);padding:1.5rem;width:360px;max-width:95vw}
+.modal h3{font-size:16px;font-weight:500;margin-bottom:1rem}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:13px;color:var(--color-text-secondary);margin-bottom:4px}
+.field input,.field select{width:100%}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:1.25rem}
+.btn-cancel{background:transparent;border:0.5px solid var(--color-border-tertiary);padding:0 16px;height:36px;border-radius:var(--border-radius-md);font-size:14px;cursor:pointer;color:var(--color-text-secondary)}
+.no-rows{padding:2.5rem;text-align:center;color:var(--color-text-tertiary);font-size:14px}
+.sort-arrow{margin-left:4px;opacity:0.5;font-size:11px}
+.pagination{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--color-text-secondary)}
+.pagination button{border:0.5px solid var(--color-border-tertiary);background:transparent;color:var(--color-text-primary);padding:4px 10px;border-radius:var(--border-radius-md);cursor:pointer;font-size:13px}
+.pagination button:disabled{opacity:0.35;cursor:default}
+.pagination button:hover:not(:disabled){background:var(--color-background-secondary)}
+</style>
+
+<div class="app">
+  <h2 class="sr-only">Data management application with table, filters, and CRUD operations</h2>
+  <div class="stats" id="stats"></div>
+  <div class="toolbar">
+    <input type="text" id="search" placeholder="Search records…" oninput="render()">
+    <select id="statusFilter" onchange="render()">
+      <option value="">All statuses</option>
+      <option value="Active">Active</option>
+      <option value="Inactive">Inactive</option>
+      <option value="Pending">Pending</option>
+    </select>
+    <select id="deptFilter" onchange="render()">
+      <option value="">All departments</option>
+    </select>
+    <button class="btn-primary" onclick="openModal()">+ Add record</button>
+    <button class="btn-primary" style="background:var(--color-background-secondary);color:var(--color-text-primary);border:0.5px solid var(--color-border-tertiary)" onclick="exportCSV()">Export CSV</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th onclick="setSort('name')">Name <span class="sort-arrow" id="s-name"></span></th>
+          <th onclick="setSort('email')">Email <span class="sort-arrow" id="s-email"></span></th>
+          <th onclick="setSort('department')">Department <span class="sort-arrow" id="s-department"></span></th>
+          <th onclick="setSort('status')">Status <span class="sort-arrow" id="s-status"></span></th>
+          <th onclick="setSort('joined')">Joined <span class="sort-arrow" id="s-joined"></span></th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div id="no-rows" class="no-rows" style="display:none">No records match your filters.</div>
+  </div>
+  <div class="pagination">
+    <button id="btn-prev" onclick="prevPage()">← Prev</button>
+    <span id="page-info"></span>
+    <button id="btn-next" onclick="nextPage()">Next →</button>
+  </div>
+</div>
+
+<div id="modal" class="modal-bg" style="display:none" onclick="closeOnBg(event)">
+  <div class="modal">
+    <h3 id="modal-title">Add record</h3>
+    <div class="field"><label>Name</label><input id="f-name" type="text" placeholder="Full name"></div>
+    <div class="field"><label>Email</label><input id="f-email" type="email" placeholder="email@example.com"></div>
+    <div class="field"><label>Department</label><select id="f-dept">
+      <option>Engineering</option><option>Design</option><option>Marketing</option><option>Sales</option><option>HR</option><option>Finance</option>
+    </select></div>
+    <div class="field"><label>Status</label><select id="f-status">
+      <option>Active</option><option>Inactive</option><option>Pending</option>
+    </select></div>
+    <div class="field"><label>Joined</label><input id="f-joined" type="date"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveRecord()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let data = [
+  {id:1,name:"Priya Sharma",email:"priya.sharma@corp.io",department:"Engineering",status:"Active",joined:"2022-03-14"},
+  {id:2,name:"Marcus Chen",email:"m.chen@corp.io",department:"Design",status:"Active",joined:"2021-07-08"},
+  {id:3,name:"Leila Osei",email:"l.osei@corp.io",department:"Marketing",status:"Pending",joined:"2024-01-20"},
+  {id:4,name:"James Kowalski",email:"j.kowalski@corp.io",department:"Sales",status:"Inactive",joined:"2019-11-03"},
+  {id:5,name:"Ananya Rao",email:"a.rao@corp.io",department:"HR",status:"Active",joined:"2023-06-15"},
+  {id:6,name:"Tom Baptiste",email:"t.baptiste@corp.io",department:"Finance",status:"Active",joined:"2020-09-22"},
+  {id:7,name:"Sana Mirza",email:"s.mirza@corp.io",department:"Engineering",status:"Pending",joined:"2024-03-05"},
+  {id:8,name:"David Nkomo",email:"d.nkomo@corp.io",department:"Design",status:"Active",joined:"2022-11-18"},
+  {id:9,name:"Fatima Al-Hassan",email:"f.alhassan@corp.io",department:"Marketing",status:"Inactive",joined:"2021-04-30"},
+  {id:10,name:"Raj Patel",email:"r.patel@corp.io",department:"Engineering",status:"Active",joined:"2023-02-10"},
+  {id:11,name:"Sophie Laurent",email:"s.laurent@corp.io",department:"Sales",status:"Active",joined:"2022-08-25"},
+  {id:12,name:"Carlos Medina",email:"c.medina@corp.io",department:"HR",status:"Pending",joined:"2024-02-14"}
+];
+let nextId = 13, editId = null, sortCol = "name", sortDir = 1, page = 1;
+const PAGE = 8;
+
+function depts(){return[...new Set(data.map(r=>r.department))].sort()}
+function filtered(){
+  const q=document.getElementById("search").value.toLowerCase();
+  const st=document.getElementById("statusFilter").value;
+  const dp=document.getElementById("deptFilter").value;
+  return data.filter(r=>{
+    const m=!q||(r.name+r.email+r.department).toLowerCase().includes(q);
+    const s=!st||r.status===st;
+    const d=!dp||r.department===dp;
+    return m&&s&&d;
+  }).sort((a,b)=>{
+    const v=a[sortCol]<b[sortCol]?-1:a[sortCol]>b[sortCol]?1:0;
+    return v*sortDir;
+  });
+}
+function setSort(col){
+  if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=1;}
+  render();
+}
+function badgeClass(s){return s==="Active"?"badge-active":s==="Inactive"?"badge-inactive":"badge-pending";}
+function render(){
+  const rows=filtered();
+  const totalPages=Math.max(1,Math.ceil(rows.length/PAGE));
+  if(page>totalPages)page=totalPages;
+  const slice=rows.slice((page-1)*PAGE,page*PAGE);
+  const tbody=document.getElementById("tbody");
+  const noRows=document.getElementById("no-rows");
+  tbody.innerHTML="";
+  noRows.style.display=slice.length?"none":"block";
+  slice.forEach(r=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${r.name}</td><td style="color:var(--color-text-secondary)">${r.email}</td><td>${r.department}</td><td><span class="badge ${badgeClass(r.status)}">${r.status}</span></td><td style="color:var(--color-text-secondary)">${r.joined}</td><td><div class="actions"><button class="btn-edit" onclick="editRecord(${r.id})">Edit</button><button class="btn-danger" onclick="deleteRecord(${r.id})">Delete</button></div></td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById("btn-prev").disabled=page===1;
+  document.getElementById("btn-next").disabled=page===totalPages;
+  document.getElementById("page-info").textContent=`Page ${page} of ${totalPages} · ${rows.length} record${rows.length!==1?"s":""}`;
+  ["name","email","department","status","joined"].forEach(c=>{
+    const el=document.getElementById("s-"+c);
+    el.textContent=sortCol===c?(sortDir===1?"▲":"▼"):"";
+  });
+  renderStats();
+  const dp=document.getElementById("deptFilter");
+  const cur=dp.value;
+  dp.innerHTML='<option value="">All departments</option>';
+  depts().forEach(d=>{const o=document.createElement("option");o.value=d;o.textContent=d;dp.appendChild(o);});
+  dp.value=cur;
+}
+function renderStats(){
+  const active=data.filter(r=>r.status==="Active").length;
+  const pending=data.filter(r=>r.status==="Pending").length;
+  const inactive=data.filter(r=>r.status==="Inactive").length;
+  document.getElementById("stats").innerHTML=`
+    <div class="stat"><div class="stat-label">Total records</div><div class="stat-val">${data.length}</div></div>
+    <div class="stat"><div class="stat-label">Active</div><div class="stat-val" style="color:var(--color-text-success)">${active}</div></div>
+    <div class="stat"><div class="stat-label">Pending</div><div class="stat-val" style="color:var(--color-text-warning)">${pending}</div></div>
+    <div class="stat"><div class="stat-label">Inactive</div><div class="stat-val" style="color:var(--color-text-tertiary)">${inactive}</div></div>
+  `;
+}
+function prevPage(){if(page>1){page--;render();}}
+function nextPage(){const t=Math.ceil(filtered().length/PAGE);if(page<t){page++;render();}}
+function openModal(id){
+  editId=id||null;
+  document.getElementById("modal-title").textContent=id?"Edit record":"Add record";
+  if(id){
+    const r=data.find(x=>x.id===id);
+    document.getElementById("f-name").value=r.name;
+    document.getElementById("f-email").value=r.email;
+    document.getElementById("f-dept").value=r.department;
+    document.getElementById("f-status").value=r.status;
+    document.getElementById("f-joined").value=r.joined;
+  } else {
+    ["f-name","f-email"].forEach(f=>document.getElementById(f).value="");
+    document.getElementById("f-dept").value="Engineering";
+    document.getElementById("f-status").value="Active";
+    document.getElementById("f-joined").value=new Date().toISOString().slice(0,10);
+  }
+  document.getElementById("modal").style.display="flex";
+}
+function editRecord(id){openModal(id);}
+function closeModal(){document.getElementById("modal").style.display="none";}
+function closeOnBg(e){if(e.target===document.getElementById("modal"))closeModal();}
+function saveRecord(){
+  const name=document.getElementById("f-name").value.trim();
+  const email=document.getElementById("f-email").value.trim();
+  if(!name||!email){alert("Name and email are required.");return;}
+  const rec={
+    id:editId||nextId++,
+    name,email,
+    department:document.getElementById("f-dept").value,
+    status:document.getElementById("f-status").value,
+    joined:document.getElementById("f-joined").value
+  };
+  if(editId){const i=data.findIndex(x=>x.id===editId);data[i]=rec;}
+  else data.push(rec);
+  closeModal();render();
+}
+function deleteRecord(id){
+  if(!confirm("Delete this record?"))return;
+  data=data.filter(x=>x.id!==id);
+  render();
+}
+function exportCSV(){
+  const cols=["name","email","department","status","joined"];
+  const rows=filtered();
+  const csv=[cols.join(","),...rows.map(r=>cols.map(c=>`"${r[c]}"`).join(","))].join("\n");
+  const a=document.createElement("a");
+  a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);
+  a.download="records.csv";
+  a.click();
+}
+render();
+</script>
